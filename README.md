@@ -102,8 +102,3 @@ npm run dev
 ```bash
 docker ps    # See all containers and their status
 ```
-
-## More Info
-
-- [DEVELOPER_ONBOARDING.md](./DEVELOPER_ONBOARDING.md) - Detailed setup guide
-- [docs/architecture/SYSTEM_DESIGN.md](./docs/architecture/SYSTEM_DESIGN.md) - Architecture details
