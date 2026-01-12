@@ -1356,9 +1356,3 @@ This system demonstrates a modern, scalable architecture for AI-powered recruitm
 6. **Integration Hub** - Connect to more ATS/CRM systems
 
 ---
-
-For detailed component documentation, see:
-- [apps/api/README.md](../apps/api/README.md)
-- [services/ml-service/README.md](../services/ml-service/README.md)
-- [services/etl-service/README.md](../services/etl-service/README.md)
-- [pipelines/airflow/README.md](../pipelines/airflow/README.md)
