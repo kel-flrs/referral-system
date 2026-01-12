@@ -4,6 +4,15 @@ AI-powered candidate-to-job matching with Bullhorn CRM integration using ML embe
 
 **What it does:** Automatically syncs candidates and positions, generates ML embeddings, matches them using hybrid scoring, and creates referrals back to Bullhorn.
 
+## Sneak Peek
+**UI**
+<img width="1908" height="998" alt="ui" src="https://github.com/user-attachments/assets/f88ee1f0-862e-4750-b5e0-380f8782bb1c" />
+
+**ETL Pipelines**
+<img width="1049" height="409" alt="etl" src="https://github.com/user-attachments/assets/43ee36e3-f70e-4e34-8436-e146b2e796d3" />
+
+
+
 ## Tech Stack
 
 | Layer | Technologies |
