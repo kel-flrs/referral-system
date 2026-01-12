@@ -1,0 +1,54 @@
+# Node modules
+node_modules/
+npm-debug.log
+
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+dist/
+build/
+*.log
+
+# Test coverage
+coverage/
+
+# Airflow (exclude logs and generated files)
+airflow/logs/*
+airflow/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+.venv/
+
+# Documentation
+*.md
+!README.md
+
+# Docker
+docker-compose.override.yml

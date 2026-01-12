@@ -1,0 +1,25 @@
+# Core dependencies
+apache-airflow==2.8.1
+apache-airflow-providers-postgres==5.10.0
+requests==2.31.0
+psycopg2-binary==2.9.9
+
+# Data processing
+pandas==2.1.4
+numpy==1.24.3
+
+# Data quality
+great-expectations==0.18.8
+
+# Database
+SQLAlchemy==1.4.51
+pgvector==0.2.4
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+tenacity==8.2.3
+cuid==0.4
+
+# Logging
+structlog==23.3.0

@@ -1,0 +1,76 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5434/bullhorn_mock_dev
+    username: postgres
+    password: postgres
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: true
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+        # Enable batch inserts
+        jdbc:
+          batch_size: 100
+        order_inserts: true
+        order_updates: true
+        # Generate statistics to verify batching
+        generate_statistics: true
+
+# Development server configuration
+server:
+  port: 8080
+
+# Logging for development
+logging:
+  level:
+    root: INFO
+    com.bullhorn.mockservice: DEBUG
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  file:
+    name: logs/bullhorn-mock-service-dev.log
+
+# Application-specific properties
+app:
+  mock-data:
+    default-count: 1000
+    enable-auto-generation: true
+    # TURBO MODE: Use PostgreSQL COPY for 10-50x faster inserts
+    # true = PostgreSQL COPY (30-60 seconds for 500k records)
+    # false = JPA batch inserts (8-12 minutes for 500k records)
+    use-postgres-copy: true
+  oauth:
+    jwt-secret: dev-secret-key-change-in-production-12345678
+    issuer: bullhorn-mock-service-dev
+    session-validity-seconds: 3600  # 1 hour session
+  webhook:
+    # Webhook delivery configuration
+    default-timeout-seconds: 30
+    default-max-retries: 5
+    default-max-events-per-minute: 100
+    # Retry intervals (exponential backoff)
+    retry-intervals:
+      - 30    # 30 seconds
+      - 60    # 1 minute
+      - 120   # 2 minutes
+      - 300   # 5 minutes
+      - 600   # 10 minutes
+    # Cleanup configuration
+    log-retention-days: 30
+    # Thread pool for async webhook delivery
+    executor:
+      core-pool-size: 5
+      max-pool-size: 20
+      queue-capacity: 500

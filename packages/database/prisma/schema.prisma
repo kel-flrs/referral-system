@@ -1,0 +1,303 @@
+// Prisma schema for referral matching system
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Consultants/Recruiters who work at your company
+model Consultant {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+  bullhornId        String      @unique
+  firstName         String
+  lastName          String
+  email             String      @unique
+  phone             String?
+  isActive          Boolean     @default(true)
+
+  // Activity tracking
+  lastActivityAt    DateTime?
+  totalPlacements   Int         @default(0)
+  totalReferrals    Int         @default(0)
+
+  // AI/ML - Embedding for preference matching
+  preferenceEmbedding Unsupported("vector(384)")?
+
+  // Relations
+  activities        ConsultantActivity[]
+  referrals         Referral[]
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([bullhornId])
+  @@index([email])
+}
+
+// Track consultant activities from Bullhorn (calls, emails, meetings)
+model ConsultantActivity {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+  consultantId      String
+  consultant        Consultant  @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  bullhornId        String      @unique
+  activityType      String      // CALL, EMAIL, MEETING, NOTE
+
+  // Activity details
+  subject           String?
+  description       String?
+  contactBullhornId String?     // ID of the contact/candidate in Bullhorn
+  contactName       String?
+  contactEmail      String?
+
+  activityDate      DateTime
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([consultantId])
+  @@index([contactBullhornId])
+  @@index([activityDate])
+}
+
+// Candidates from Bullhorn
+model Candidate {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+  bullhornId        String      @unique
+  firstName         String
+  lastName          String
+  email             String
+  phone             String?
+
+  // Professional info
+  currentTitle      String?
+  currentCompany    String?
+  location          String?
+  skills            String[]    // Array of skills
+
+  // Resume/profile
+  summary           String?
+  experience        Json?       // Structured work history
+  education         Json?       // Education history
+
+  // Status
+  status            String      @default("ACTIVE") // ACTIVE, PLACED, INACTIVE
+
+  // AI/ML - Semantic search embedding
+  profileEmbedding  Unsupported("vector(384)")?
+
+  // Relations
+  connections       CandidateConnection[]
+  matches           Match[]
+  referrals         Referral[]
+
+  // Metadata
+  lastSyncedAt      DateTime?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([bullhornId])
+  @@index([email])
+  @@index([status])
+}
+
+// Network connections between candidates
+model CandidateConnection {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+  candidateId       String
+  candidate         Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  // Connection details
+  connectionType    String      // LINKEDIN, COLLEAGUE, REFERRAL, MANUAL
+
+  // Connected person (may or may not be in our system)
+  connectedName     String
+  connectedEmail    String?
+  connectedTitle    String?
+  connectedCompany  String?
+  connectedBullhornId String?   // If they exist in Bullhorn
+
+  // Connection metadata
+  relationshipStrength Int      @default(1) // 1-5 scale
+  notes             String?
+  source            String?     // Where we learned about this connection
+
+  verifiedAt        DateTime?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([candidateId])
+  @@index([connectedEmail])
+  @@index([connectedBullhornId])
+}
+
+// Open positions from Bullhorn
+model Position {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+  bullhornId        String      @unique
+
+  title             String
+  description       String?
+  employmentType    String?     // FULL_TIME, CONTRACT, TEMP
+
+  // Requirements
+  requiredSkills    String[]
+  preferredSkills   String[]
+  experienceLevel   String?     // ENTRY, MID, SENIOR, EXECUTIVE
+  location          String?
+  salary            String?
+
+  // Client info
+  clientName        String?
+  clientBullhornId  String?
+
+  // Status
+  status            String      @default("OPEN") // OPEN, FILLED, CLOSED
+  openDate          DateTime?
+  closeDate         DateTime?
+
+  // AI/ML - Semantic search embedding
+  descriptionEmbedding Unsupported("vector(384)")?
+
+  // Relations
+  matches           Match[]
+  referrals         Referral[]
+
+  // Metadata
+  lastSyncedAt      DateTime?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([bullhornId])
+  @@index([status])
+}
+
+// AI/Algorithm matches between candidates and positions
+model Match {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+
+  candidateId       String
+  candidate         Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  positionId        String
+  position          Position    @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  // Matching scores
+  overallScore      Float       // 0-100
+  skillMatchScore   Float
+  experienceScore   Float
+  locationScore     Float?
+  semanticScore     Float?      // AI semantic similarity score
+
+  // Matching details
+  matchedSkills     String[]
+  missingSkills     String[]
+  matchReason       String?     // Human-readable explanation
+
+  // Status
+  status            String      @default("PENDING") // PENDING, REVIEWED, REFERRED, REJECTED
+
+  // Relations
+  referral          Referral?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([candidateId, positionId])
+  @@index([overallScore])
+  @@index([status])
+  @@index([createdAt])
+  @@index([status, overallScore, createdAt]) // Compound index for dashboard queries
+}
+
+// Referrals sent to ATS
+model Referral {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+
+  matchId           String      @unique
+  match             Match       @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  candidateId       String
+  candidate         Candidate   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+
+  positionId        String
+  position          Position    @relation(fields: [positionId], references: [id], onDelete: Cascade)
+
+  consultantId      String
+  consultant        Consultant  @relation(fields: [consultantId], references: [id], onDelete: Cascade)
+
+  // Referral details
+  referralSource    String      // How the referrer knows the candidate
+  referrerName      String?     // Name of the person making introduction
+  referrerEmail     String?
+  referrerPhone     String?
+  notes             String?
+
+  // Bullhorn integration
+  bullhornSubmissionId String?  @unique
+  sentToBullhornAt  DateTime?
+
+  // Status tracking
+  status            String      @default("PENDING") // PENDING, SENT, CONTACTED, INTERVIEWING, REJECTED, PLACED
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([candidateId])
+  @@index([positionId])
+  @@index([consultantId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([sentToBullhornAt])
+  @@index([status, createdAt]) // Compound index for filtering + sorting
+}
+
+// Background jobs for async processing
+model Job {
+  id                String      @id @default(dbgenerated("gen_random_uuid()"))
+  type              String      // SYNC_CONSULTANTS, SYNC_CANDIDATES, SYNC_POSITIONS, FIND_MATCHES, SEND_REFERRAL
+  status            String      @default("PENDING") // PENDING, PROCESSING, COMPLETED, FAILED
+
+  data              Json?       // Job-specific data
+  result            Json?       // Job result
+  error             String?
+
+  attempts          Int         @default(0)
+  maxAttempts       Int         @default(3)
+
+  startedAt         DateTime?
+  completedAt       DateTime?
+
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@index([type])
+  @@index([status])
+}
+
+// Pipeline run tracking for ETL jobs
+model PipelineRun {
+  id                  String      @id @default(dbgenerated("gen_random_uuid()"))
+  pipeline_name       String
+  status              String      // RUNNING, SUCCESS, FAILED
+  records_processed   Int         @default(0)
+  records_inserted    Int         @default(0)
+  records_updated     Int         @default(0)
+  error_message       String?
+  metadata            Json?
+  duration_seconds    Float?
+  started_at          DateTime    @default(now())
+  completed_at        DateTime?
+
+  @@map("pipeline_runs")
+  @@index([pipeline_name])
+  @@index([status])
+  @@index([started_at])
+}

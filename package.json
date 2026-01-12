@@ -1,0 +1,36 @@
+{
+  "name": "referral-system",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automated referral matching system with Bullhorn integration",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run infra:up && bash scripts/wait-for-db.sh && npm run db:migrate:deploy && npx turbo run dev --filter=@referral-system/web-consultant",
+    "build": "turbo run build",
+    "start": "turbo run start",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "infra:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d --build",
+    "infra:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "infra:reinit": "docker compose -f infrastructure/docker/docker-compose.yml rm -f airflow-init && npm run infra:up",
+    "infra:logs": "docker-compose -f infrastructure/docker/docker-compose.yml logs -f",
+    "db:generate": "turbo run db:generate --filter=@referral-system/database",
+    "db:migrate": "turbo run db:migrate --filter=@referral-system/database",
+    "db:migrate:deploy": "npm run db:migrate:deploy --workspace=@referral-system/database",
+    "db:push": "turbo run db:push --filter=@referral-system/database",
+    "db:seed": "turbo run db:seed --filter=@referral-system/database",
+    "db:studio": "turbo run db:studio --filter=@referral-system/database",
+    "db:cleanup": "npx tsx scripts/db/cleanup-all-data.ts"
+  },
+  "devDependencies": {
+    "turbo": "^2.3.0",
+    "typescript": "^5.3.0"
+  },
+  "packageManager": "npm@10.2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

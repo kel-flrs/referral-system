@@ -1,0 +1,216 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: referral-system-db
+    environment:
+      POSTGRES_USER: referral_user
+      POSTGRES_PASSWORD: referral_pass
+      POSTGRES_DB: referral_system
+    ports:
+      - 5433:5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U referral_user
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: referral-system-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - 5051:80
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
+  ml-service:
+    build:
+      context: ../../services/ml-service
+      dockerfile: Dockerfile
+    container_name: referral-system-ml
+    ports:
+      - 8000:8000
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8000/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  bullhorn-pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bullhorn-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - 5052:80
+    volumes:
+      - bullhorn_pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - bullhorn-postgres
+    restart: unless-stopped
+
+  bullhorn-postgres:
+    image: postgres:15
+    container_name: bullhorn-postgres
+    environment:
+      POSTGRES_DB: bullhorn_mock_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - 5434:5432
+    volumes:
+      - bullhorn_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - pg_isready -U postgres
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  bullhorn-mock:
+    build:
+      context: ../../services/bullhorn-mock
+      dockerfile: Dockerfile
+    container_name: bullhorn-mock
+    ports:
+      - 8082:8080
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://bullhorn-postgres:5432/bullhorn_mock_dev
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgres
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+    depends_on:
+      bullhorn-postgres:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8080/actuator/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ../../
+      dockerfile: apps/api/Dockerfile
+    container_name: referral-system-api
+    ports:
+      - 3222:3222
+    environment:
+      - PORT=3222
+      - DATABASE_URL=postgresql://referral_user:referral_pass@postgres:5432/referral_system
+      - NODE_ENV=production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  airflow-webserver:
+    build:
+      context: ../../pipelines
+      dockerfile: airflow/Dockerfile
+    container_name: referral-system-airflow-webserver
+    command: webserver
+    ports:
+      - 8081:8080
+    env_file:
+      - ../../pipelines/airflow/.env.airflow
+    volumes:
+      - ../../pipelines/airflow/dags:/opt/airflow/dags
+      - ../../pipelines/airflow/logs:/opt/airflow/logs
+      - ../../pipelines/airflow/plugins:/opt/airflow/plugins
+      - ../../pipelines/data_platform:/opt/airflow/data_platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8080/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  airflow-scheduler:
+    build:
+      context: ../../pipelines
+      dockerfile: airflow/Dockerfile
+    container_name: referral-system-airflow-scheduler
+    command: scheduler
+    env_file:
+      - ../../pipelines/airflow/.env.airflow
+    volumes:
+      - ../../pipelines/airflow/dags:/opt/airflow/dags
+      - ../../pipelines/airflow/logs:/opt/airflow/logs
+      - ../../pipelines/airflow/plugins:/opt/airflow/plugins
+      - ../../pipelines/data_platform:/opt/airflow/data_platform
+    depends_on:
+      postgres:
+        condition: service_healthy
+      airflow-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - -f
+        - http://localhost:8974/health
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+  airflow-init:
+    build:
+      context: ../../pipelines
+      dockerfile: airflow/Dockerfile
+    container_name: referral-system-airflow-init
+    command:
+      - bash
+      - /opt/airflow/scripts/init-airflow.sh
+    env_file:
+      - ../../pipelines/airflow/.env.airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: 'no'
+
+volumes:
+  postgres_data: null
+  pgadmin_data: null
+  bullhorn_postgres_data: null
+  bullhorn_pgadmin_data: null
